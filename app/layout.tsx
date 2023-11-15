@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { ThemeProvider } from "@/components/theme-provider"
+import { SiteHeader } from "@/components/site-header"
 import { Inter } from 'next/font/google'
 import './globals.css'
 
@@ -16,7 +18,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+        >
+          <div className="relative flex min-h-screen flex-col">
+            <SiteHeader />
+            <div className="flex-1">{children}</div>
+          </div>
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

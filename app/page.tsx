@@ -1,113 +1,174 @@
-import Image from 'next/image'
+"use client"
+import { useEffect, useState } from "react";
+import { ForecastData, CurrentWeatherDataResponse, MinMaxTemperature, WeatherEntry } from "@/lib/types"
+import Days from "@/components/days";
+import { NullCurrentWeatherDataResponse, NullMinMaxTemperature } from "@/lib/data";
+import Main from "@/components/main";
+
+const BASE_WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather?";
+const FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast?";
 
 export default function Home() {
+
+  const [city, setCity] = useState("");
+
+  const [weather, setWeather] = useState<CurrentWeatherDataResponse>(NullCurrentWeatherDataResponse);
+
+  const [forecast, setForecast] = useState<MinMaxTemperature[]>(Array(5).fill(NullMinMaxTemperature));
+
+  const [error, setError] = useState("");
+  const [units, setUnits] = useState("metric");
+
+  var options = {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0,
+  };
+
+  function convertTo5DayForecast(apiResponse: { list: WeatherEntry[] }): ForecastData {
+    const forecastData: ForecastData = {};
+
+    apiResponse.list.forEach(entry => {
+      const timestamp = entry.dt * 1000; // Convert Unix timestamp to milliseconds
+      const currentDate = new Date();
+      const entryDate = new Date(timestamp);
+
+      // Skip data for the current day
+      if (entryDate.getDate() === currentDate.getDate()) {
+        return;
+      }
+
+      const date = entryDate.toLocaleDateString();
+      const dayOfWeek = entryDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const icon = entry.weather[0].icon;
+
+      if (!forecastData[date]) {
+        forecastData[date] = {
+          temperatures: [],
+          weatherIcons: [],
+          dayOfWeek: dayOfWeek
+        };
+      }
+
+      const temperature = entry.main.temp;
+      const weatherIcon = icon;
+
+      forecastData[date].temperatures.push(temperature);
+      forecastData[date].weatherIcons.push(weatherIcon);
+    });
+
+    return forecastData;
+  }
+
+  function calculateMinMaxTemperatures(forecastData: ForecastData): MinMaxTemperature[] {
+    const minMaxTemperatures = [];
+
+    for (const date in forecastData) {
+      const temperatures = forecastData[date].temperatures;
+      const minTemp = Math.min(...temperatures);
+      const maxTemp = Math.max(...temperatures);
+      const weatherIcons = forecastData[date].weatherIcons;
+      const dayOfWeek = forecastData[date].dayOfWeek;
+
+      minMaxTemperatures.push(
+        {
+          min: minTemp,
+          max: maxTemp,
+          weatherIcon: weatherIcons[2],
+          dayOfWeek: dayOfWeek
+        });
+    }
+
+    return minMaxTemperatures;
+  }
+
+  async function success(pos: { coords: any; }) {
+    var crd = pos.coords;
+    const weatherUrl = `${BASE_WEATHER_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.WEATHER_API_KEY}`;
+    const forecastUrl = `${FORECAST_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.WEATHER_API_KEY}`
+
+    const weatherResponse = await fetch(weatherUrl);
+    const weatherData = await weatherResponse.json();
+
+    const forecastResponse = await fetch(forecastUrl);
+    const forecastData = await forecastResponse.json();
+
+    if (weatherResponse && weatherData && weatherResponse.status === 200) {
+      setWeather(weatherData);
+      console.log(weatherData)
+
+    } else {
+      setError("Server Problem");
+    }
+
+    if (forecastResponse && forecastData && forecastResponse.status === 200) {
+      const result = calculateMinMaxTemperatures(convertTo5DayForecast(forecastData));
+      // console.log(result);
+      setForecast(result);
+
+    } else {
+      setError("Server Problem");
+    }
+
+  }
+
+  function errors() {
+    setError("Permission Denied");
+  }
+
+
+  function load() {
+    setWeather(NullCurrentWeatherDataResponse);
+    setError("");
+
+    try {
+      if (navigator.geolocation) {
+        navigator.permissions
+          .query({ name: "geolocation" })
+          .then(function (result) {
+            if (result.state === "granted") {
+              navigator.geolocation.getCurrentPosition(success);
+            } else if (result.state === "prompt") {
+              navigator.geolocation.getCurrentPosition(
+                success,
+                errors,
+                options
+              );
+            } else if (result.state === "denied") {
+              setError("Permission Denied");
+            }
+          });
+      } else {
+        setError("Location not Available");
+      }
+    } catch (err) {
+      setError("Permission Denied");
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [units])
+
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <main className="container flex min-h-screen grid-cols-12 grid-rows-6 flex-col gap-6 py-8 md:grid">
+      <div className="col-span-12 row-span-2 w-full md:col-span-6 lg:col-span-4 xl:row-span-6">
+        <Main weather={weather} />
+      </div>
+      <div className="col-span-12 row-span-2 md:col-span-6 lg:col-span-8">
+        <h3 className="my-8 scroll-m-20 text-2xl font-semibold tracking-tight">
+          This week
+        </h3>
+        <div className="flex items-start justify-normal gap-4 overflow-x-auto md:flex-wrap md:items-center md:justify-center md:overflow-hidden">
+          {
+            forecast.map((data, id) => <div key={id}>
+              <Days min={data.min} max={data.max} weatherIcon={data.weatherIcon} dayOfWeek={data.dayOfWeek} />
+            </div>)
+          }
         </div>
       </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
     </main>
   )
 }
