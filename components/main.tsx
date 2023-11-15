@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import Image from 'next/image'
 import { CurrentWeatherDataResponse } from '@/lib/types'
+import { useEffect, useState } from "react"
 
 interface Props {
     weather: CurrentWeatherDataResponse
@@ -20,15 +21,27 @@ interface Props {
 
 function Main({ weather }: Props) {
 
-    const event = new Date(Date(weather.dt));
-    const date = event.toLocaleDateString('en-US', {
-        weekday: 'long', //year: 'numeric', month: 'long', day: 'numeric'
-    })
+    const [date, setDate] = useState<string | null>(null)
+    const [time, setTime] = useState<string | null>(null)
 
-    const time = event.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: 'numeric'
-    })
+    useEffect(() => {
+        if (weather.dt) {
+            const event = new Date(weather.dt);
+            setDate(
+                event.toLocaleDateString('en-US', {
+                    weekday: 'long', //year: 'numeric', month: 'long', day: 'numeric'
+                })
+            )
+
+            setTime(
+                event.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: 'numeric'
+                })
+            )
+        }
+    }, [weather.dt])
+
 
     return (
         <Card className="h-full w-full">

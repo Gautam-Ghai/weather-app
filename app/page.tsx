@@ -84,8 +84,8 @@ export default function Home() {
 
   async function success(pos: { coords: any; }) {
     var crd = pos.coords;
-    const weatherUrl = `${BASE_WEATHER_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.WEATHER_API_KEY}`;
-    const forecastUrl = `${FORECAST_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.WEATHER_API_KEY}`
+    const weatherUrl = `${BASE_WEATHER_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.NEXT_PUBLIC_WEATHER_API_KEY}`;
+    const forecastUrl = `${FORECAST_URL}lat=${crd.latitude}&lon=${crd.longitude}&units=${units}&appid=${process.env.NEXT_PUBLIC_WEATHER_API_KEY}`
 
     const weatherResponse = await fetch(weatherUrl);
     const weatherData = await weatherResponse.json();
@@ -95,7 +95,7 @@ export default function Home() {
 
     if (weatherResponse && weatherData && weatherResponse.status === 200) {
       setWeather(weatherData);
-      console.log(weatherData)
+      // console.log(weatherData)
 
     } else {
       setError("Server Problem");
