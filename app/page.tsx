@@ -95,7 +95,7 @@ export default function Home() {
 
     if (weatherResponse && weatherData && weatherResponse.status === 200) {
       setWeather(weatherData);
-      // console.log(weatherData)
+      console.log(weatherData)
 
     } else {
       setError("Server Problem");

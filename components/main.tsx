@@ -26,7 +26,7 @@ function Main({ weather }: Props) {
 
     useEffect(() => {
         if (weather.dt) {
-            const event = new Date(weather.dt);
+            const event = new Date(weather.dt*1000);
             setDate(
                 event.toLocaleDateString('en-US', {
                     weekday: 'long', //year: 'numeric', month: 'long', day: 'numeric'
